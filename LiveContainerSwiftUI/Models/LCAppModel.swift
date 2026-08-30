@@ -440,7 +440,17 @@ class LCAppModel: ObservableObject, Hashable {
             }
         }
         
-        // sign its tweak
+        // sign global tweak folder FIRST and unconditionally: tweaks placed here inject into
+        // every app (this is where our dylib lives). The original code signed it only after the
+        // per-app-tweakFolder guard below, so apps without a per-app folder never got the global
+        // tweaks signed — that is why a freshly-pushed global dylib stayed unsigned.
+        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: forceTweaks) { p in
+            Task{ await MainActor.run {
+                self.isSigningInProgress = true
+            }}
+        }
+
+        // sign the app's per-app tweak folder if it has one
         guard let tweakFolder = appInfo.tweakFolder else {
             return
         }
@@ -452,13 +462,6 @@ class LCAppModel: ObservableObject, Hashable {
             tweakFolderUrl = LCPath.tweakPath.appendingPathComponent(tweakFolder)
         }
         try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: forceTweaks) { p in
-            Task{ await MainActor.run {
-                self.isSigningInProgress = true
-            }}
-        }
-
-        // sign global tweak
-        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: forceTweaks) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
