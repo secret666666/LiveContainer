@@ -210,7 +210,7 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     // You should let LCAppModel.runApp to decide whether to run in multitask mode, but you may override the multitask parameter if necessary
-    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil, forceSign: Bool = false) async throws{
+    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil, forceSignApp: Bool = false, forceSignTweaks: Bool = false) async throws{
         if isAppRunning {
             return
         }
@@ -295,8 +295,11 @@ class LCAppModel: ObservableObject, Hashable {
                     if let folderName = uiSelectedContainer?.folderName {
                         queryItems.append(URLQueryItem(name: "container-folder-name", value: folderName))
                     }
-                    if forceSign {
-                        queryItems.append(URLQueryItem(name: "force-sign", value: "1"))
+                    if forceSignApp {
+                        queryItems.append(URLQueryItem(name: "sign-app", value: "1"))
+                    }
+                    if forceSignTweaks {
+                        queryItems.append(URLQueryItem(name: "sign-tweaks", value: "1"))
                     }
 
                     launchURLComp.queryItems = queryItems
@@ -323,7 +326,7 @@ class LCAppModel: ObservableObject, Hashable {
                 isAppRunning = false
             }}
         }
-        try await signApp(force: forceSign)
+        try await signApp(forceApp: forceSignApp, forceTweaks: forceSignTweaks)
 
         if let bundleIdOverride {
             UserDefaults.standard.set(bundleIdOverride, forKey: "selected")
@@ -402,10 +405,10 @@ class LCAppModel: ObservableObject, Hashable {
             }}
 
         }
-        try await signApp(force: true)
+        try await signApp(forceApp: true, forceTweaks: true)
     }
-    
-    func signApp(force: Bool = false) async throws {
+
+    func signApp(forceApp: Bool = false, forceTweaks: Bool = false) async throws {
         var signError : String? = nil
         var signSuccess = false
         defer {
@@ -429,7 +432,7 @@ class LCAppModel: ObservableObject, Hashable {
                         self.signProgress = signProgress.fractionCompleted
                     }
                 }
-            }, forceSign: force)
+            }, forceSign: forceApp)
         })
         if let signError {
             if !signSuccess {
@@ -448,14 +451,14 @@ class LCAppModel: ObservableObject, Hashable {
         } else {
             tweakFolderUrl = LCPath.tweakPath.appendingPathComponent(tweakFolder)
         }
-        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: force) { p in
+        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: forceTweaks) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
         }
 
         // sign global tweak
-        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: force) { p in
+        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: forceTweaks) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}

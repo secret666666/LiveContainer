@@ -1006,7 +1006,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
     }
     
-    func launchAppWithBundleId(bundleId : String, container : String?, urlStr: String? = nil, forceJIT: Bool? = nil, forceSign: Bool = false) async {
+    func launchAppWithBundleId(bundleId : String, container : String?, urlStr: String? = nil, forceJIT: Bool? = nil, forceSignApp: Bool = false, forceSignTweaks: Bool = false) async {
         if bundleId == "" {
             return
         }
@@ -1054,7 +1054,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
 
         do {
-            try await appFound.runApp(multitask: nil, containerFolderName: container, urlStr: urlStr, forceJIT: forceJIT, forceSign: forceSign)
+            try await appFound.runApp(multitask: nil, containerFolderName: container, urlStr: urlStr, forceJIT: forceJIT, forceSignApp: forceSignApp, forceSignTweaks: forceSignTweaks)
         } catch {
             errorInfo = error.localizedDescription
             errorShow = true
@@ -1213,7 +1213,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 var containerName : String? = nil
                 var forceJIT: Bool? = nil
                 var urlStr: String? = nil
-                var forceSign: Bool = false
+                var forceSignApp: Bool = false
+                var forceSignTweaks: Bool = false
                 for queryItem in components.queryItems ?? [] {
                     if queryItem.name == "bundle-name", let bundleId1 = queryItem.value {
                         bundleId = bundleId1
@@ -1230,13 +1231,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                            let decodedUrl = String(data: decodedData, encoding: .utf8) {
                             urlStr = decodedUrl
                         }
-                    } else if queryItem.name == "force-sign" {
-                        // opt-in re-sign: only when the launch URL asks for it (e.g. after pushing a new lib/tweak)
-                        forceSign = (queryItem.value == "1" || queryItem.value == "true")
+                    } else if queryItem.name == "sign-app" {
+                        // opt-in: re-sign the whole app bundle incl. RobloxLib.framework (~100MB) — use after replacing the framework
+                        forceSignApp = (queryItem.value == "1" || queryItem.value == "true")
+                    } else if queryItem.name == "sign-tweaks" {
+                        // opt-in: re-sign only the tweak dylibs (~5MB, cheap) — use after replacing a dylib
+                        forceSignTweaks = (queryItem.value == "1" || queryItem.value == "true")
                     }
                 }
                 if let bundleId, bundleId != "ui"{
-                    Task { await launchAppWithBundleId(bundleId: bundleId, container: containerName, urlStr: urlStr, forceJIT: forceJIT, forceSign: forceSign) }
+                    Task { await launchAppWithBundleId(bundleId: bundleId, container: containerName, urlStr: urlStr, forceJIT: forceJIT, forceSignApp: forceSignApp, forceSignTweaks: forceSignTweaks) }
                 }
             }
         } else if url.host == "install" {
