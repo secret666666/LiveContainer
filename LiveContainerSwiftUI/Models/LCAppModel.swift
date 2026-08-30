@@ -210,7 +210,7 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     // You should let LCAppModel.runApp to decide whether to run in multitask mode, but you may override the multitask parameter if necessary
-    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil) async throws{
+    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil, forceSign: Bool = false) async throws{
         if isAppRunning {
             return
         }
@@ -295,7 +295,10 @@ class LCAppModel: ObservableObject, Hashable {
                     if let folderName = uiSelectedContainer?.folderName {
                         queryItems.append(URLQueryItem(name: "container-folder-name", value: folderName))
                     }
-                    
+                    if forceSign {
+                        queryItems.append(URLQueryItem(name: "force-sign", value: "1"))
+                    }
+
                     launchURLComp.queryItems = queryItems
                     
                     if let url = launchURLComp.url {
@@ -320,8 +323,8 @@ class LCAppModel: ObservableObject, Hashable {
                 isAppRunning = false
             }}
         }
-        try await signApp(force: false)
-        
+        try await signApp(force: forceSign)
+
         if let bundleIdOverride {
             UserDefaults.standard.set(bundleIdOverride, forKey: "selected")
         } else {
@@ -445,15 +448,14 @@ class LCAppModel: ObservableObject, Hashable {
         } else {
             tweakFolderUrl = LCPath.tweakPath.appendingPathComponent(tweakFolder)
         }
-        // Always re-sign tweaks on launch so a freshly-pushed (unsigned/ad-hoc) dylib is signed with LC's cert without a manual sign.
-        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: true) { p in
+        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: force) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
         }
 
         // sign global tweak
-        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: true) { p in
+        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: force) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
