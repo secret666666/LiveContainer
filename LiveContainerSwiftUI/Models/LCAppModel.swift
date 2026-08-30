@@ -438,21 +438,22 @@ class LCAppModel: ObservableObject, Hashable {
         guard let tweakFolder = appInfo.tweakFolder else {
             return
         }
-        
+
         let tweakFolderUrl : URL
         if(appInfo.isShared) {
             tweakFolderUrl = LCPath.lcGroupTweakPath.appendingPathComponent(tweakFolder)
         } else {
             tweakFolderUrl = LCPath.tweakPath.appendingPathComponent(tweakFolder)
         }
-        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: force) { p in
+        // Always re-sign tweaks on launch so a freshly-pushed (unsigned/ad-hoc) dylib is signed with LC's cert without a manual sign.
+        try await LCUtils.signTweaks(tweakFolderUrl: tweakFolderUrl, force: true) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
         }
-        
+
         // sign global tweak
-        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: force) { p in
+        try await LCUtils.signTweaks(tweakFolderUrl: LCPath.tweakPath, force: true) { p in
             Task{ await MainActor.run {
                 self.isSigningInProgress = true
             }}
